@@ -197,7 +197,7 @@ jobs:
           }
           EOF
 
-            - name: Build APK
+      - name: Build APK
         working-directory: souqna
         run: |
           gradle wrapper --gradle-version 8.9
