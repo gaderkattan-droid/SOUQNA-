@@ -1,0 +1,210 @@
+name: Build SOUQNA APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Android project
+        run: |
+          mkdir -p souqna/app/src/main/java/com/souqna/app
+          mkdir -p souqna/app/src/main/res/values
+
+          cat > souqna/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "SOUQNA"
+          include(":app")
+          EOF
+
+          cat > souqna/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > souqna/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.souqna.app'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.souqna.app'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > souqna/app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="سوقنا"
+                  android:allowBackup="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > souqna/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:layoutDirection">rtl</item>
+                  <item name="android:textDirection">rtl</item>
+                  <item name="android:colorAccent">#1565C0</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > souqna/app/src/main/java/com/souqna/app/MainActivity.java <<'EOF'
+          package com.souqna.app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.*;
+
+          public class MainActivity extends Activity {
+
+              LinearLayout list;
+              double factor = 600.0;
+
+              @Override
+              public void onCreate(Bundle b) {
+                  super.onCreate(b);
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(24,24,24,24);
+                  root.setBackgroundColor(Color.WHITE);
+
+                  TextView title = new TextView(this);
+                  title.setText("سوقنا");
+                  title.setTextSize(30);
+                  title.setTextColor(Color.rgb(20,80,140));
+                  title.setGravity(Gravity.CENTER);
+                  title.setPadding(0,10,0,20);
+                  root.addView(title);
+
+                  TextView subtitle = new TextView(this);
+                  subtitle.setText("أسعار المنتجات بالجنيه السوداني");
+                  subtitle.setTextSize(16);
+                  subtitle.setGravity(Gravity.CENTER);
+                  root.addView(subtitle);
+
+                  EditText search = new EditText(this);
+                  search.setHint("🔎 ابحث عن منتج");
+                  root.addView(search);
+
+                  list = new LinearLayout(this);
+                  list.setOrientation(LinearLayout.VERTICAL);
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.addView(list);
+                  root.addView(scroll, new LinearLayout.LayoutParams(
+                          -1, 0, 1));
+
+                  addProduct("هاتف ذكي", 250.0);
+                  addProduct("سماعات لاسلكية", 35.0);
+                  addProduct("شاحن سريع", 15.0);
+                  addProduct("حقيبة", 40.0);
+
+                  search.setOnEditorActionListener((v, action, event) -> {
+                      filter(search.getText().toString());
+                      return false;
+                  });
+
+                  setContentView(root);
+              }
+
+              void addProduct(String name, double globalPrice) {
+                  TextView item = new TextView(this);
+                  double local = globalPrice * factor;
+
+                  item.setText(
+                      "🛍️ " + name +
+                      "\nالسعر: " + String.format("%.0f", local) + " جنيه سوداني"
+                  );
+
+                  item.setTextSize(19);
+                  item.setPadding(20,25,20,25);
+                  item.setBackgroundColor(Color.rgb(245,245,245));
+
+                  LinearLayout.LayoutParams p =
+                      new LinearLayout.LayoutParams(-1, -2);
+                  p.setMargins(0,8,0,8);
+
+                  list.addView(item,p);
+
+                  // الضغط المطول يعرض السعر العالمي للمدير
+                  item.setOnLongClickListener(v -> {
+                      Toast.makeText(
+                          this,
+                          "السعر العالمي: " + globalPrice +
+                          " USD\nمعامل التحويل: " + factor,
+                          Toast.LENGTH_LONG
+                      ).show();
+                      return true;
+                  });
+              }
+
+              void filter(String text) {
+                  for(int i=0;i<list.getChildCount();i++) {
+                      View v=list.getChildAt(i);
+                      TextView t=(TextView)v;
+                      v.setVisibility(
+                          t.getText().toString().contains(text)
+                          ? View.VISIBLE : View.GONE
+                      );
+                  }
+              }
+          }
+          EOF
+
+      - name: Build APK
+        working-directory: souqna
+        run: |
+          gradle wrapper --gradle-version 8.9
+          ./gradlew assembleRelease
+
+      - name: Upload SOUQNA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOUQNA-APK
+          path: souqna/app/build/outputs/apk/release/app-release.apk
