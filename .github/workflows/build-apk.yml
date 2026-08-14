@@ -197,14 +197,35 @@ jobs:
           }
           EOF
 
-      - name:Build APK
+            - name: Build APK
         working-directory: souqna
         run: |
           gradle wrapper --gradle-version 8.9
           ./gradlew assembleRelease
 
+      - name: Sign APK
+        working-directory: souqna
+        run: |
+          keytool -genkeypair -v \
+            -keystore souqna-release.jks \
+            -alias souqna \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass souqna123 \
+            -keypass souqna123 \
+            -dname "CN=SOUQNA, OU=SOUQNA, O=SOUQNA, L=Khartoum, ST=Khartoum, C=SD"
+
+          $ANDROID_HOME/build-tools/35.0.0/apksigner sign \
+            --ks souqna-release.jks \
+            --ks-key-alias souqna \
+            --ks-pass pass:souqna123 \
+            --key-pass pass:souqna123 \
+            --out app/build/outputs/apk/release/souqna.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+
       - name: Upload SOUQNA APK
         uses: actions/upload-artifact@v4
         with:
           name: SOUQNA-APK
-          path: souqna/app/build/outputs/apk/**/*.
+          path: souqna/app/build/outputs/apk/release/souqna.apk
